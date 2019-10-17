@@ -3,18 +3,7 @@ WonderPush Web Plugin Shopify
 
 WonderPush Web SDK plugin for Shopify stores.
 
-About WonderPush
-----------------
-
-[WonderPush](https://www.wonderpush.com/) is a push notifications
-service that allows your users to opt-in to timely updates from your
-website and allow you to effectively re-engage them with customized,
-engaging content, even when they are not currently browsing your
-website.
-
-Find out how to integrate web push notifications to your website
-easily at: https://www.wonderpush.com/docs/web/getting-started.
-
+[WonderPush, Push Service - Notifications for Web, iOS, Android](https://www.wonderpush.com/).
 
 Plugin documentation
 --------------------

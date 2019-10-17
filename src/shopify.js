@@ -55,7 +55,6 @@
         this.get = function() {
           return new Promise(function(resolve, reject) {
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', '/cart.js');
             xhr.onload = function() {
               if (xhr.status >= 200 && xhr.status < 300) {
                 resolve(JSON.parse(xhr.responseText));
@@ -66,6 +65,7 @@
             xhr.onerror = function(error) {
               reject(error);
             };
+            xhr.open('GET', '/cart.js');
             xhr.send();
           });
         };
@@ -78,9 +78,17 @@
 
         this.start = function() {
           var run = function() {
+            var next = function() { setTimeout(run, frequency); };
             if (!running) return;
-            this.update();
-            setTimeout(run, frequency);
+            if (!window.WonderPush.isSubscribedToNotifications) {
+              next();
+              return;
+            }
+            window.WonderPush.isSubscribedToNotifications()
+              .then(function(isSubscribed) {
+                if (isSubscribed) this.update().then(next, next);
+                else next();
+              }.bind(this));
           }.bind(this);
 
           running = true;
@@ -149,7 +157,7 @@
           };
         };
         this.update = function() {
-          cartClient.get()
+          return cartClient.get()
             .then(function(cart) {
               window.WonderPush.push(function() {
                 var properties = propertiesFromCart(cart);

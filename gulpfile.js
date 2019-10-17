@@ -204,9 +204,8 @@ gulp.task('doc-prepare-publish', gulp.series('clean', 'doc', 'doc-prepare-publis
 gulp.task('dist-js', gulp.series('minify-css', 'minify-less', 'minify-sass', 'copy-res', function() {
     return gulp.src(JS_GLOB)
         .pipe(plumber())
-        .pipe(jshint())
+        .pipe(jshint({supernew: true}))
         .pipe(jshint.reporter())
-        .pipe(jshint.reporter('fail'))
         .pipe(sourcemaps.init())
         .pipe(babel({
             plugins: [

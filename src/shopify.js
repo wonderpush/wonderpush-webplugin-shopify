@@ -97,8 +97,6 @@
         }.bind(this);
 
         var propertiesFromCart = function(cart) {
-          var product = cart && cart.items && cart.items.length ? cart.items[0] : undefined;
-
           var products = cart && cart.items || [];
           if (!products.length) {
             return {
@@ -106,7 +104,7 @@
               string_cartReminderMessage: null,
               string_cartReminderUrl: null,
               string_cartReminderPictureUrl: null,
-            }
+            };
           }
           var product;
           switch(options.cartReminderStrategy || 'latest') {
@@ -148,7 +146,7 @@
             string_cartReminderMessage: options && options.cartReminderMessage || defaultMessage,
             string_cartReminderUrl: url.href,
             string_cartReminderPictureUrl: options.cartReminderDisableImage ? null : product.image || null,
-          }
+          };
         };
         this.update = function() {
           cartClient.get()

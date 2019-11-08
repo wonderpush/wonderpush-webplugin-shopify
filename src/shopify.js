@@ -20,7 +20,7 @@
    * @see {@link https://wonderpush.github.io/wonderpush-javascript-sdk/latest/WonderPushPluginSDK.html|WonderPush JavaScript Plugin SDK reference}
    */
   WonderPush.registerPlugin("shopify", {
-    window: function OptinBell(WonderPushSDK, options) {
+    window: function (WonderPushSDK, options) {
       window.WonderPush = window.WonderPush || [];
       var translations = {
         "fr": {
@@ -148,6 +148,22 @@
             case 'checkout':
               url = new URL('/checkout', window.location);
               break;
+          }
+
+          // utm params
+          var utmParameters = [];
+          ['source', 'medium', 'campaign'].forEach(function(x) {
+            var optionKey = 'cartReminderUTM' + x.substr(0, 1).toUpperCase() + x.substr(1);
+            if (!options[optionKey]) return;
+            utmParameters.push('utm_'+x+'='+encodeURIComponent(options[optionKey]));
+          });
+          switch (options.cartReminderUTMContent) {
+            case 'product-name':
+              if (product && product.product_title) utmParameters.push('utm_content='+encodeURIComponent(product.product_title));
+              break;
+          }
+          if (utmParameters.length && url) {
+            url.search = (url.search ? url.search + '&' : '?') + utmParameters.join('&');
           }
           return {
             string_cartReminderProductName: product.product_title || null,

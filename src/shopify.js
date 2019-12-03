@@ -13,6 +13,7 @@
    * @property {String} [cartReminderMessage] - Sets the message of the cart reminder push notification. Defaults to “Order before it's too late!”.
    * @property {String} [cartReminderDestination] - Determines where the user is taken upon cart reminder push notification click. Valid values are 'homepage', 'cart', 'checkout'. Defaults to 'cart'.
    * @property {String} [cartReminderDisableImage] - When true, the product image is not added to the notification. Defaults to false.
+   * @property {String} [cartReminderDiscountCode] - A discount code to be applied on cart reminder notification click.
    */
   /**
    * The WonderPush JavaScript SDK instance.
@@ -164,6 +165,16 @@
           }
           if (utmParameters.length && url) {
             url.search = (url.search ? url.search + '&' : '?') + utmParameters.join('&');
+          }
+          // Finally, if there's a discount code, go redeem and redirect
+          if (options.cartReminderDiscountCode) {
+            var discountUrl = new URL('/discount/' + encodeURIComponent(options.cartReminderDiscountCode), window.location);
+            var relativeHref = url.pathname;
+            // Url in the form /discount/CODE?redirect=/foo/bar&rest=of&the=query
+            // Redirects to /foo/bar?rest=of&the=query
+            // In other words, don't include the query string in the encodeURIComponent, append instead
+            discountUrl.search = '?redirect=' + encodeURIComponent(relativeHref) + (url.search && '&' + url.search.substr(1));
+            url = discountUrl;
           }
           return {
             string_cartReminderProductName: product.product_title || null,

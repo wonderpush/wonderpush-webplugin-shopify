@@ -73,12 +73,22 @@
       }();
 
       var cartReminder = new function(frequency) {
+
+        // We'll call update() every (frequency)ms
         if (!frequency) frequency = 3000;
+
+        // for unsubscribed users, we'll update() every
+        // (frequency * unsubscribedFrequencyMultiple) ms
+        // instead of (frequency)ms for subscribed users.
+        var unsubscribedFrequencyMultiple = 10;
+
         var timeoutId;
         var running = false;
 
         this.start = function() {
+          var runNumber = 0;
           var run = function() {
+            runNumber += 1;
             var next = function() { setTimeout(run, frequency); };
             if (!running) return;
             if (!window.WonderPush.isSubscribedToNotifications) {
@@ -88,7 +98,13 @@
             window.WonderPush.isSubscribedToNotifications()
               .then(function(isSubscribed) {
                 if (isSubscribed) this.update().then(next, next);
-                else next();
+                else {
+                  if (runNumber % unsubscribedFrequencyMultiple === 1) {
+                    this.update().then(next, next);
+                  } else {
+                    next();
+                  }
+                }
               }.bind(this));
           }.bind(this);
 

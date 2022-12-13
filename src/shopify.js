@@ -28,6 +28,17 @@
     return text;
   };
 
+  class CurrencyHelper {
+    static setCurrency(currency) {
+      CurrencyHelper.currency = currency;
+    }
+    static fetchCurrency() {
+      if (CurrencyHelper.currency) return Promise.resolve(CurrencyHelper.currency);
+      return new ShopfiyClient().getCart()
+        .then(() => CurrencyHelper.currency);
+    }
+  }
+
   class ShopfiyClient {
 
     get root() {
@@ -39,7 +50,9 @@
         const xhr = new XMLHttpRequest();
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(JSON.parse(xhr.responseText));
+            const cart = JSON.parse(xhr.responseText);
+            if (cart.currency) CurrencyHelper.setCurrency(cart.currency);
+            resolve(cart);
             return;
           }
           reject(new Error('Invalid response'));
@@ -228,17 +241,23 @@
     }
 
     async getCurrentProductJson() {
-      return this.getCurrentJsonLdProductJson() // Prefer JSON-LD as it has currency info and is faster (doesn't require AJAX)
-        || (await this.getCurrentShopifyProductJson());
+      try {
+        return await this.getCurrentShopifyProductJson();
+      } catch (e) {
+        return this.getCurrentJsonLdProductJson();
+      }
     }
 
     async getCurrentShopifyProductJson() {
       const productUrlRegex = /^https:\/\/.+\/products\/[^\/]+$/;
       if (!window.location.href.match(productUrlRegex)) return null;
       const url = window.location.href + '.js';
-      const response = await fetch(url);
-      if (!response.ok) return null;
-      const product = await response.json();
+      const [productResponse, currency] = await Promise.all([
+        fetch(url),
+        CurrencyHelper.fetchCurrency(),
+      ]);
+      if (!productResponse.ok) return null;
+      const product = await productResponse.json();
       const images = [product.featured_image, ...(product.images || [])]
         .filter(x => !!x)
         .map(x => this.ensureProtocol(x));
@@ -253,7 +272,7 @@
         object_offers: {
           string_type: 'Offer',
           float_price: (variant?.price || product.price || 0) / 100, // Price is in cents
-          string_priceCurrency: undefined, // Not provided
+          string_priceCurrency: CurrencyHelper.currency,
           date_priceValidUntil: undefined, // Not provided
           string_url: new URL(product.url, window.location.href).href,
           string_itemCondition: undefined, // Not provided

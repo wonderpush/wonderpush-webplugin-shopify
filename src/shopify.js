@@ -270,7 +270,7 @@
       const product = Array.from(document.querySelectorAll('script[type="application/ld+json"]'))
         .flatMap(function(node) {
           try {
-            const textContent = node.textContent || '';
+            let textContent = node.textContent || '';
             // Replace line breaks with spaces to make parsing more robust
             textContent = textContent.replace(/\n+/g, ' ');
             return JSON.parse(textContent);
@@ -338,7 +338,7 @@
     trackExitEvent(product) {
       if (!product) return;
 
-      // Fire at most every 5 minutes for a given url
+      // Fire at-most every 5 minutes for a given url
       if (this.lastExitEventUrl === window.location.href
         && this.lastExitEventDate
         && (+new Date() - this.lastExitEventDate.getTime()) < 5 * 60000) {

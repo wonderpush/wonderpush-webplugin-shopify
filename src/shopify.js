@@ -1,7 +1,7 @@
 (function () {
 
   /**
-   * WonderPush Shopify plugin 
+   * WonderPush Shopify plugin
    * @class Shopify
    * @param {external:WonderPushPluginSDK} WonderPushSDK - The WonderPush SDK instance provided automatically on intanciation.
    * @param {Shopify.Options} options - The plugin options.
@@ -66,7 +66,7 @@
             xhr.onerror = function(error) {
               reject(error);
             };
-            xhr.open('GET', '/cart.js');
+            xhr.open('GET',  (window.Shopify?.routes?.root || '/')+ 'cart.js');
             xhr.send();
           });
         };

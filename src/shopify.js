@@ -201,6 +201,159 @@
 
   }
 
+  class ProductHelper {
+
+    cleanup(s) {
+      return (s||"").replace(/^https?:\/\/schema.org\//, '');
+    }
+
+    cleanupDateString(dateString) {
+      if (!dateString) return undefined;
+      try {
+        const d = new Date(dateString);
+        if (isNaN(d)) return undefined;
+        return d.toISOString();
+      } catch (e) {}
+    }
+
+    sanitize(s) {
+      if (!s) return s;
+      const stripped = s.replace(/(<([^>]+)>)/gi, "");
+      return stripped.length > 120 ? stripped.substring(0, 119) + '…' : stripped;
+    }
+
+    ensureProtocol(url) {
+      if (url && url.startsWith('//')) return 'https:' + url;
+      return url;
+    }
+
+    async getCurrentProductJson() {
+      return this.getCurrentJsonLdProductJson() // Prefer JSON-LD as it has currency info and is faster (doesn't require AJAX)
+        || (await this.getCurrentShopifyProductJson());
+    }
+
+    async getCurrentShopifyProductJson() {
+      const productUrlRegex = /^https:\/\/.+\/products\/[^\/]+$/;
+      if (!window.location.href.match(productUrlRegex)) return null;
+      const url = window.location.href + '.js';
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      const product = await response.json();
+      const images = [product.featured_image, ...(product.images || [])]
+        .filter(x => !!x)
+        .map(x => this.ensureProtocol(x));
+      const variant = (product.variants || [])[0];
+      return ({
+        string_type: 'Product',
+        string_image: images[0],
+        string_name: this.sanitize(product.title),
+        string_description: this.sanitize(product.description),
+        string_sku: variant?.sku,
+        string_gtin13: variant.barcode,
+        object_offers: {
+          string_type: 'Offer',
+          float_price: (variant?.price || product.price || 0) / 100, // Price is in cents
+          string_priceCurrency: undefined, // Not provided
+          date_priceValidUntil: undefined, // Not provided
+          string_url: new URL(product.url, window.location.href).href,
+          string_itemCondition: undefined, // Not provided
+          string_availability: product.available ? 'InStock' : 'OutOfStock',
+        },
+        object_brand: {
+          string_name: product.vendor,
+          string_type: 'Brand',
+        },
+      });
+    }
+
+    getCurrentJsonLdProductJson() {
+      const product = Array.from(document.querySelectorAll('script[type="application/ld+json"]'))
+        .flatMap(function(node) {
+          try {
+            const textContent = node.textContent || '';
+            // Replace line breaks with spaces to make parsing more robust
+            textContent = textContent.replace(/\n+/g, ' ');
+            return JSON.parse(textContent);
+          } catch (e) {
+            console.warn('[WonderPush] unable to parse ld+json data, e-commerce features might not work as expected', e);
+          }
+          return null;
+        })
+        .filter(x => !!x)
+        .find((jsonLd) => (jsonLd['@type'] === 'Product' || jsonLd['@type'] === 'http://schema.org/Product'));
+      if (!product) return null;
+      const offer = Array.isArray(product.offers) ? product.offers[0] : product.offers;
+      let price = parseFloat(offer?.price);
+      if (isNaN(price)) price = null;
+      return ({
+        string_type: product['@type'],
+        string_image: (
+          (product.image && Array.isArray(product.image)) ? (product.image.length && product.image[0]) : (typeof product.image === 'string' ? product.image : undefined)
+        ) || undefined,
+        string_name: this.sanitize(product.name),
+        string_description: this.sanitize(product.description),
+        string_sku: product.sku,
+        string_gtin13: product.gtin13,
+        object_offers: offer ? {
+          string_type: offer['@type'],
+          float_price: price,
+          string_priceCurrency: offer.priceCurrency,
+          date_priceValidUntil: this.cleanupDateString(offer.priceValidUntil),
+          string_url: offer.url,
+          string_itemCondition: this.cleanup(offer.itemCondition),
+          string_availability: this.cleanup(offer.availability),
+        } : undefined,
+        object_brand: product.brand ? {
+          string_name: product.brand.name || undefined,
+          string_type: product.brand['@type'] || undefined,
+        } : undefined,
+      });
+    }
+
+  }
+
+  class EventHelper {
+
+    constructor() {
+      this.lastExitEventDate = null;
+      this.lastExitEventUrl = null;
+      this.lastEventTracked = null;
+    }
+
+    trackEvent(type, data) {
+      // Discard duplicate events
+      if (this.lastEventTracked &&
+        this.lastEventTracked.type === type
+        && this.lastEventTracked.data
+        && this.lastEventTracked.data.object_product
+        && this.lastEventTracked.data.object_product.string_sku
+        && data && data.object_product
+        && data.object_product.string_sku === this.lastEventTracked.data.object_product.string_sku) {
+        return;
+      }
+      this.lastEventTracked = { type: type, data: data };
+      window.WonderPush.push(['trackEvent', type, data]);
+    }
+
+    trackExitEvent(product) {
+      if (!product) return;
+
+      // Fire at most every 5 minutes for a given url
+      if (this.lastExitEventUrl === window.location.href
+        && this.lastExitEventDate
+        && (+new Date() - this.lastExitEventDate.getTime()) < 5 * 60000) {
+        return;
+      }
+      this.lastExitEventDate = new Date();
+      this.lastExitEventUrl = window.location.href;
+      this.trackEvent('Exit', {
+        object_product: product,
+        string_url: window.location.href,
+      });
+    }
+
+  }
+
   /**
    * WonderPush Shopify plugin
    * @class Shopify
@@ -229,6 +382,18 @@
     window: function (WonderPushSDK, options) {
       window.WonderPush = window.WonderPush || [];
       if (!options.disableCartReminder) (new CartReminder(options)).start();
+
+      const eventHelper = new EventHelper();
+      const productHelper = new ProductHelper();
+
+      document.addEventListener('mouseout', function(e) {
+        if (!e.toElement && !e.relatedTarget) {
+          productHelper.getCurrentProductJson()
+            .then((product) => {
+              eventHelper.trackExitEvent(product);
+            });
+        }
+      });
     }
   });
 })();

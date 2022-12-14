@@ -240,15 +240,43 @@
       return url;
     }
 
-    async getCurrentProductJson() {
+    async getCheckoutPageProductJson() {
+      if (!window.Shopify?.checkout?.line_items?.length) return null;
+      const product = window.Shopify.checkout.line_items[0];
+      const currency = await CurrencyHelper.fetchCurrency();
+      const price = typeof product.price === 'string' ? parseFloat(product.price) : undefined; // This price is NOT in cents
+      return ({
+        string_type: 'Product',
+        string_image: product.image_url,
+        string_name: this.sanitize(product.title),
+        string_description: this.sanitize(product.description),
+        string_sku: product.sku,
+        string_gtin13: product.barcode,
+        object_offers: {
+          string_type: 'Offer',
+          float_price: isNaN(price) ? undefined : price,
+          string_priceCurrency: currency,
+          date_priceValidUntil: undefined, // Not provided
+          string_url: undefined, // Not provided
+          string_itemCondition: undefined, // Not provided
+          string_availability: undefined, // Not privided
+        },
+        object_brand: {
+          string_name: product.vendor,
+          string_type: 'Brand',
+        },
+      });
+    }
+
+    async getProductPageProductJson() {
       try {
-        return await this.getCurrentShopifyProductJson();
+        return await this.getProductPageShopifyProductJson();
       } catch (e) {
-        return this.getCurrentJsonLdProductJson();
+        return this.getProductPageJsonLdProductJson();
       }
     }
 
-    async getCurrentShopifyProductJson() {
+    async getProductPageShopifyProductJson() {
       const productUrlRegex = /^https:\/\/.+\/products\/[^\/]+$/;
       if (!window.location.href.match(productUrlRegex)) return null;
       const url = window.location.href + '.js';
@@ -285,7 +313,7 @@
       });
     }
 
-    getCurrentJsonLdProductJson() {
+    getProductPageJsonLdProductJson() {
       const product = Array.from(document.querySelectorAll('script[type="application/ld+json"]'))
         .flatMap(function(node) {
           try {
@@ -354,6 +382,13 @@
       window.WonderPush.push(['trackEvent', type, data]);
     }
 
+    trackPurchaseEvent(product) {
+      this.trackEvent('Purchase', {
+        object_product: product,
+        string_url: window.location.href,
+      });
+    }
+
     trackExitEvent(product) {
       if (!product) return;
 
@@ -400,19 +435,28 @@
   WonderPush.registerPlugin("shopify", {
     window: function (WonderPushSDK, options) {
       window.WonderPush = window.WonderPush || [];
+
+      // Cart reminder
       if (!options.disableCartReminder) (new CartReminder(options)).start();
 
       const eventHelper = new EventHelper();
       const productHelper = new ProductHelper();
 
+      // Exit event support
       document.addEventListener('mouseout', function(e) {
         if (!e.toElement && !e.relatedTarget) {
-          productHelper.getCurrentProductJson()
+          productHelper.getProductPageProductJson()
             .then((product) => {
               eventHelper.trackExitEvent(product);
             });
         }
       });
+
+      // Purchase event support
+      if (window.Shopify && window.Shopify.checkout && window.Shopify.Checkout.step === 'thank_you') {
+        productHelper.getCheckoutPageProductJson()
+          .then(product => eventHelper.trackPurchaseEvent(product));
+      }
     }
   });
 })();

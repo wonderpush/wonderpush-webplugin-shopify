@@ -453,9 +453,19 @@
       });
 
       // Purchase event support
-      if (window.Shopify && window.Shopify.checkout && window.Shopify.Checkout.step === 'thank_you') {
-        productHelper.getCheckoutPageProductJson()
-          .then(product => eventHelper.trackPurchaseEvent(product));
+      const reportPurchaseEvent = () => {
+        if (window.Shopify && window.Shopify.checkout && window.Shopify.Checkout.step === 'thank_you') {
+          productHelper.getCheckoutPageProductJson()
+            .then(product => eventHelper.trackPurchaseEvent(product));
+        }
+      };
+      switch (document.readyState) {
+        case 'loading':
+          document.addEventListener('DOMContentLoaded', () => reportPurchaseEvent());
+          break;
+        default:
+          reportPurchaseEvent();
+          break;
       }
     }
   });

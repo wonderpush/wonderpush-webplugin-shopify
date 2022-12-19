@@ -370,12 +370,7 @@
     trackEvent(type, data) {
       // Discard duplicate events
       if (this.lastEventTracked &&
-        this.lastEventTracked.type === type
-        && this.lastEventTracked.data
-        && this.lastEventTracked.data.object_product
-        && this.lastEventTracked.data.object_product.string_sku
-        && data && data.object_product
-        && data.object_product.string_sku === this.lastEventTracked.data.object_product.string_sku) {
+        this.lastEventTracked.type === type && this.lastEventTracked.data && this.lastEventTracked.data.object_product && this.lastEventTracked.data.object_product.string_sku && data && data.object_product && data.object_product.string_sku === this.lastEventTracked.data.object_product.string_sku) {
         return;
       }
       this.lastEventTracked = { type: type, data: data };
@@ -393,9 +388,7 @@
       if (!product) return;
 
       // Fire at-most every 5 minutes for a given url
-      if (this.lastExitEventUrl === window.location.href
-        && this.lastExitEventDate
-        && (+new Date() - this.lastExitEventDate.getTime()) < 5 * 60000) {
+      if (this.lastExitEventUrl === window.location.href && this.lastExitEventDate && (+new Date() - this.lastExitEventDate.getTime()) < 5 * 60000) {
         return;
       }
       this.lastExitEventDate = new Date();
